@@ -23,6 +23,7 @@ public class MainController {
     private ArrayListMultimap<Integer, Integer> map_key_grade;
     private ArrayListMultimap<String, Integer> map_key_major;
     private ArrayList<Timetable> classes;
+
     MainController() {
         classes = new ArrayList<Timetable>();
         for (int i = 0; i < 3746; i++) {
@@ -68,9 +69,11 @@ public class MainController {
                         e.printStackTrace();
                         System.out.println(idx + " ERROR!");
                     }
-                    if (day == -1) {System.out.println(idx + " is error"); continue;}
-                    else System.out.print((char)((char)day + 'A'));
-                    String[] timevalues =  time.split(" ");
+                    if (day == -1) {
+                        System.out.println(idx + " is error");
+                        continue;
+                    } else System.out.print((char) ((char) day + 'A'));
+                    String[] timevalues = time.split(" ");
                     for (int i = 1; i < timevalues.length; i++) {
                         timevalues[i] = timevalues[i].strip();
                         if (!Character.isDigit(timevalues[i].charAt(0))) {
@@ -89,6 +92,7 @@ public class MainController {
             throw new RuntimeException(e);
         }
     }
+
     @GetMapping("/index")
     public String index() {
         return "desktop-1440px";
@@ -99,10 +103,9 @@ public class MainController {
     public String test() {
         try {
             return String.valueOf(new ClassPathResource("data/info.csv").getURL());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-    catch (IOException e) {
-        throw new RuntimeException(e);
-    }
     }
 
     @RequestMapping("/class/{idx}")
@@ -112,7 +115,7 @@ public class MainController {
         String ret = new String();
         Timetable obj = classes.get(id);
         for (int i = 0; i < obj.DAYS; i++) {
-            ret += (char)('A' + (char)i);
+            ret += (char) ('A' + (char) i);
             for (int j = 0; j < obj.TIMES; j++) {
                 if (obj.chk_time(i, j)) ret += " " + Integer.toString(j);
             }
