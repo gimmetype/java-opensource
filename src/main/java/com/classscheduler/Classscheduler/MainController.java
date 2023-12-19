@@ -1,6 +1,9 @@
 package com.classscheduler.Classscheduler;
 
 import com.opencsv.exceptions.CsvException;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.expression.spel.ast.NullLiteral;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -13,13 +16,36 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.*;
+import java.util.Objects;
 
 import com.google.common.collect.ArrayListMultimap;
 @Controller
 public class MainController {
+    @Setter
+    @Getter
+    class LectureKey {
+        String major;
+        int grade;
+        LectureKey(String _major, int _grade) {
+            major = _major;
+            grade = _grade;
+        }
+        @Override
+        public int hashCode() {
+            return Objects.hash(major, grade);
+        }
+        @Override
+        public boolean equals(Object o) {
+            if(this == o) return true;
+            if(o == null || getClass() != o.getClass()) return false;
+            LectureKey other = (LectureKey) o;
+            return major.equals(((LectureKey) o).major) && grade == ((LectureKey) o).grade;
+        }
+    }
+    private ArrayListMultimap<LectureKey, Integer> map_key_comp;
+    private ArrayListMultimap<String, Integer> map_key_name;
     private ArrayListMultimap<Integer, Integer> map_key_grade;
-    private ArrayListMultimap<String, Integer> map_key_major;
+    private ArrayListMultimap<String, Integer> map_key_department;
     private ArrayList<Timetable> lectures;
     private ArrayList<String[]> lecture_data;
     enum Column {
@@ -29,6 +55,10 @@ public class MainController {
     MainController() {
         lectures = new ArrayList<>();
         lecture_data = new ArrayList<>();
+        map_key_name = ArrayListMultimap.create();
+        map_key_comp = ArrayListMultimap.create();
+        map_key_grade = ArrayListMultimap.create();
+        map_key_department = ArrayListMultimap.create();
         for (int i = 0; i < 3746; i++) {
             lectures.add(new Timetable());
             lecture_data.add(new String[0]);
@@ -37,9 +67,14 @@ public class MainController {
                 new InputStreamReader(new ClassPathResource("data/info.csv").getInputStream(), StandardCharsets.UTF_8))) {
             List<String[]> rows = reader.readAll();
             for (String[] row : rows) {
-                int idx = Integer.parseInt(row[0]);
-                String timedata = row[11];
+                int idx = Integer.parseInt(row[Column.INDEX.ordinal()]);
+                String timedata = row[Column.INFO.ordinal()];
                 String[] times = timedata.split("\\$");
+                map_key_name.put(row[Column.SUBJECT_NAME.ordinal()], idx);
+                map_key_comp.put(new LectureKey(row[Column.DEPARTMENT.ordinal()],
+                        Integer.parseInt(row[Column.GRADE.ordinal()])), idx);
+                map_key_grade.put(Integer.parseInt(row[Column.GRADE.ordinal()]), idx);
+                map_key_department.put(row[Column.DEPARTMENT.ordinal()], idx);
                 for (String time : times) {
                     time = time.strip();
                     int day = -1;
@@ -99,20 +134,23 @@ public class MainController {
         return "desktop-1440px";
     }
 
-    @GetMapping("/test")
+    @GetMapping("/lecture")
     @ResponseBody
-    public String test() {
-        try {
-            return String.valueOf(new ClassPathResource("data/info.csv").getURL());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public List<Integer> searchSubject(@RequestParam(value = "name") String subject_name) {
+        return map_key_name.get(subject_name);
     }
 
-    @GetMapping("/lecture/{idx}")
+    @GetMapping("/lecture/keys")
     @ResponseBody
-    public String[] getLecture(@PathVariable("idx") int id) {
-        return lecture_data.get(id);
+    public List<Integer> searchSubject(@RequestParam(required = false, value = "grade") Integer grade,
+                                       @RequestParam(required = false, value = "department") String department) {
+        if (grade == null && department == null) return new ArrayList<>();
+        else if (grade == null) {
+            return map_key_department.get(department);
+        } else if (department == null) {
+            return map_key_grade.get(grade);
+        } else
+            return map_key_comp.get(new LectureKey(department, grade));
     }
 
     @GetMapping("/lectures")
@@ -159,6 +197,50 @@ public class MainController {
                     if (n != 0) ret[d][t] = new Timetable.TimeInfo(i, n);
                 }
             }
+        }
+        return ret;
+    }
+
+    @PostMapping("/calculate")
+    public List<Integer> calculateTimetable(@RequestBody ArrayList<Integer>[] requestBody) {
+        int cnt = 0;
+        int idx = 0;
+        int groupidx = 0;
+        ArrayList<Integer>[] groups = new ArrayList[requestBody.length];
+        Integer[] map;
+        Integer[] getgroup;
+        for (ArrayList group: requestBody) {
+           cnt += group.size();
+           groups[groupidx] = new ArrayList<>();
+           for (int i = 0; i < group.size(); i++) {
+               groups[groupidx].add(idx++);
+           }
+           groupidx++;
+        }
+        map = new Integer[cnt];
+        getgroup = new Integer[cnt];
+        idx = 0;
+        groupidx = 0;
+        for (ArrayList group: requestBody) {
+            for (int i = 0; i < group.size(); i++) {
+                getgroup[idx] = groupidx;
+                map[idx++] = groups[groupidx].get(i);
+            }
+            groupidx++;
+        }
+        Graph g = new Graph(cnt);
+        for (int i = 0; i < cnt; i++) {
+            for (int j = i + 1; j < cnt; j++) {
+                if (getgroup[i].equals(getgroup[j])) continue;
+                if (lectures.get(map[i]).has_collision(lectures.get(map[j]))) {
+                    g.add_edge(i, j);
+                }
+            }
+        }
+        Integer[] ans = MinimumVertexCoverSolver.NaiveSolver(g, groups);
+        ArrayList<Integer> ret = new ArrayList<>();
+        for (Integer v : ans) {
+            ret.add(map[v]);
         }
         return ret;
     }
