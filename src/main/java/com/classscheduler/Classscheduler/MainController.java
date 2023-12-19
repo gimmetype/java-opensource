@@ -8,14 +8,12 @@ import org.springframework.core.io.ClassPathResource;
 
 import com.opencsv.CSVReader;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.*;
 
 import com.google.common.collect.ArrayListMultimap;
 @Controller
@@ -46,7 +44,6 @@ public class MainController {
                     time = time.strip();
                     int day = -1;
                     if (time.isEmpty()) continue;
-                    System.out.println("idx : " + idx);
                     try {
                         day = switch (time.charAt(0)) {
                             case '월' -> 0;
@@ -65,7 +62,7 @@ public class MainController {
                     if (day == -1) {
                         System.out.println(idx + " is error");
                         continue;
-                    } else System.out.print((char) ((char) day + 'A'));
+                    }
                     String[] timevalues = time.split(" ");
                     for (int i = 1; i < timevalues.length; i++) {
                         timevalues[i] = timevalues[i].strip();
@@ -74,10 +71,9 @@ public class MainController {
                         }
                         int t = Integer.parseInt(timevalues[i]);
                         lectures.get(idx).set_time(day, t);
-                        System.out.print(" " + t);
                     }
-                    System.out.println(" ");
                 }
+                lectures.get(idx).make_export_format();
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -141,6 +137,28 @@ public class MainController {
                 if (obj.chk_time(i, j)) ret += " " + Integer.toString(j);
             }
             ret += '\n';
+        }
+        return ret;
+    }
+
+    @GetMapping("/gettimetable")
+    @ResponseBody
+    public Timetable.TimeInfo[][] mergeTimetable(@RequestParam(value = "ids") int[] ids) {
+        var ret = new Timetable.TimeInfo[Timetable.DAYS][Timetable.TIMES];
+        for (int i = 0; i < Timetable.DAYS; i++) {
+            for (int j = 0; j < Timetable.TIMES; j++) {
+                ret[i][j] = new Timetable.TimeInfo(-1, 0);
+            }
+        }
+        for (int i = 0; i < ids.length; i++) {
+            int id = ids[i];
+            var lecture = lectures.get(id);
+            for (int d = 0; d < Timetable.DAYS; d++) {
+                for (int t = 0; t < Timetable.TIMES; t++) {
+                    int n = lecture.get_time(d, t);
+                    if (n != 0) ret[d][t] = new Timetable.TimeInfo(i, n);
+                }
+            }
         }
         return ret;
     }
