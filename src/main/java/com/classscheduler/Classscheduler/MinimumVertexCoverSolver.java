@@ -35,8 +35,7 @@ public class MinimumVertexCoverSolver {
                 for (int j = 0; j < group[i].size(); j++) {
                     if (selected[i] == j) {
                         vertice_set.add(group[i].get(j));
-                    }
-                    selected_cnt += 1;
+                    } else selected_cnt += 1;
                 }
             }
             if (selected_cnt > min_cnt) continue; // 최소 개수
