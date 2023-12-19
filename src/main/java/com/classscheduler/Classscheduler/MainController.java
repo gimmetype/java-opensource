@@ -22,12 +22,18 @@ import com.google.common.collect.ArrayListMultimap;
 public class MainController {
     private ArrayListMultimap<Integer, Integer> map_key_grade;
     private ArrayListMultimap<String, Integer> map_key_major;
-    private ArrayList<Timetable> classes;
+    private ArrayList<Timetable> lectures;
+    private ArrayList<String[]> lecture_data;
+    enum Column {
+        INDEX, GRADE, 이수구분, SUBJECT_ID, SUBJECT_NAME, CLASS, CREDIT, COLLEGE, DEPARTMENT, 대표교수소속, PROF, INFO
+    }
 
     MainController() {
-        classes = new ArrayList<Timetable>();
+        lectures = new ArrayList<>();
+        lecture_data = new ArrayList<>();
         for (int i = 0; i < 3746; i++) {
-            classes.add(new Timetable());
+            lectures.add(new Timetable());
+            lecture_data.add(new String[0]);
         }
         try (CSVReader reader = new CSVReader(
                 new InputStreamReader(new ClassPathResource("data/info.csv").getInputStream(), StandardCharsets.UTF_8))) {
@@ -39,32 +45,19 @@ public class MainController {
                 for (String time : times) {
                     time = time.strip();
                     int day = -1;
-                    if (time.length() == 0) continue;
+                    if (time.isEmpty()) continue;
                     System.out.println("idx : " + idx);
                     try {
-                        switch (time.charAt(0)) {
-                            case '월':
-                                day = 0;
-                                break;
-                            case '화':
-                                day = 1;
-                                break;
-                            case '수':
-                                day = 2;
-                                break;
-                            case '목':
-                                day = 3;
-                                break;
-                            case '금':
-                                day = 4;
-                                break;
-                            case '토':
-                                day = 5;
-                                break;
-                            case '일':
-                                day = 6;
-                                break;
-                        }
+                        day = switch (time.charAt(0)) {
+                            case '월' -> 0;
+                            case '화' -> 1;
+                            case '수' -> 2;
+                            case '목' -> 3;
+                            case '금' -> 4;
+                            case '토' -> 5;
+                            case '일' -> 6;
+                            default -> day;
+                        };
                     } catch (StringIndexOutOfBoundsException e) {
                         e.printStackTrace();
                         System.out.println(idx + " ERROR!");
@@ -80,11 +73,23 @@ public class MainController {
                             timevalues[i] = timevalues[i].replace(',', '0');
                         }
                         int t = Integer.parseInt(timevalues[i]);
-                        classes.get(idx).set_time(day, t);
+                        lectures.get(idx).set_time(day, t);
                         System.out.print(" " + t);
                     }
                     System.out.println(" ");
                 }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (CsvException e) {
+            throw new RuntimeException(e);
+        }
+        try (CSVReader reader = new CSVReader(
+                new InputStreamReader(new ClassPathResource("data/lecture_raw_data.csv").getInputStream(), StandardCharsets.UTF_8))) {
+            List<String[]> rows = reader.readAll();
+            int idx = 1;
+            for (String[] row : rows) {
+                lecture_data.set(idx++, row);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -108,12 +113,28 @@ public class MainController {
         }
     }
 
+    @GetMapping("/lecture/{idx}")
+    @ResponseBody
+    public String[] getLecture(@PathVariable("idx") int id) {
+        return lecture_data.get(id);
+    }
+
+    @GetMapping("/lectures")
+    @ResponseBody
+    public String[][] getLectures(@RequestParam(value = "ids") int[] ids) {
+        String[][] ret = new String[ids.length][];
+        for (int i = 0; i < ids.length; i++) {
+            ret[i] = lecture_data.get(ids[i]);
+        }
+        return ret;
+    }
+
     @RequestMapping("/class/{idx}")
     @ResponseBody
     public String getClass(@PathVariable("idx") int id) {
         System.out.println("INPUT :  " + id);
-        String ret = new String();
-        Timetable obj = classes.get(id);
+        String ret = "";
+        Timetable obj = lectures.get(id);
         for (int i = 0; i < obj.DAYS; i++) {
             ret += (char) ('A' + (char) i);
             for (int j = 0; j < obj.TIMES; j++) {
