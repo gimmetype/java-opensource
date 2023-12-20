@@ -47,7 +47,7 @@ public class MainController {
     private ArrayListMultimap<Integer, Integer> map_key_grade;
     private ArrayListMultimap<String, Integer> map_key_department;
     private ArrayList<Timetable> lectures;
-    private ArrayList<String[]> lecture_data;
+    private ArrayList<LectureDto> lecture_data;
     enum Column {
         INDEX, GRADE, 이수구분, SUBJECT_ID, SUBJECT_NAME, CLASS, CREDIT, COLLEGE, DEPARTMENT, 대표교수소속, PROF, INFO
     }
@@ -61,7 +61,7 @@ public class MainController {
         map_key_department = ArrayListMultimap.create();
         for (int i = 0; i < 3746; i++) {
             lectures.add(new Timetable());
-            lecture_data.add(new String[0]);
+            lecture_data.add(new LectureDto());
         }
         try (CSVReader reader = new CSVReader(
                 new InputStreamReader(new ClassPathResource("data/info.csv").getInputStream(), StandardCharsets.UTF_8))) {
@@ -120,7 +120,7 @@ public class MainController {
             List<String[]> rows = reader.readAll();
             int idx = 1;
             for (String[] row : rows) {
-                lecture_data.set(idx++, row);
+                lecture_data.set(idx++, new LectureDto(row));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -153,12 +153,13 @@ public class MainController {
             return map_key_comp.get(new LectureKey(department, grade));
     }
 
-    @GetMapping("/lectures")
+    @PostMapping("/lectures")
     @ResponseBody
-    public String[][] getLectures(@RequestParam(value = "ids") int[] ids) {
-        String[][] ret = new String[ids.length][];
+    public LectureDto[] getLectures(@RequestBody Integer[] ids) {
+        var ret = new LectureDto[ids.length];
         for (int i = 0; i < ids.length; i++) {
             ret[i] = lecture_data.get(ids[i]);
+            ret[i].INDEX = Integer.toString(i + 1);
         }
         return ret;
     }
@@ -202,17 +203,18 @@ public class MainController {
     }
 
     @PostMapping("/calculate")
-    public List<Integer> calculateTimetable(@RequestBody ArrayList<Integer>[] requestBody) {
+    @ResponseBody
+    public List<Integer[]> calculateTimetable(@RequestBody Integer[][] requestBody) {
         int cnt = 0;
         int idx = 0;
         int groupidx = 0;
         ArrayList<Integer>[] groups = new ArrayList[requestBody.length];
         Integer[] map;
         Integer[] getgroup;
-        for (ArrayList group: requestBody) {
-           cnt += group.size();
+        for (Integer[] group: requestBody) {
+           cnt += group.length;
            groups[groupidx] = new ArrayList<>();
-           for (int i = 0; i < group.size(); i++) {
+           for (int i = 0; i < group.length; i++) {
                groups[groupidx].add(idx++);
            }
            groupidx++;
@@ -221,8 +223,8 @@ public class MainController {
         getgroup = new Integer[cnt];
         idx = 0;
         groupidx = 0;
-        for (ArrayList group: requestBody) {
-            for (int i = 0; i < group.size(); i++) {
+        for (Integer[] group: requestBody) {
+            for (int i = 0; i < group.length; i++) {
                 getgroup[idx] = groupidx;
                 map[idx++] = groups[groupidx].get(i);
             }
@@ -237,10 +239,13 @@ public class MainController {
                 }
             }
         }
-        Integer[] ans = MinimumVertexCoverSolver.NaiveSolver(g, groups);
-        ArrayList<Integer> ret = new ArrayList<>();
-        for (Integer v : ans) {
-            ret.add(map[v]);
+        var ans = MinimumVertexCoverSolver.NaiveSolver(g, groups);
+        ArrayList<Integer[]> ret = new ArrayList<>();
+        for (Integer[] v : ans) {
+            for (int i = 0; i < v.length; i++) {
+                v[i] = map[v[i]];
+            }
+            ret.add(v);
         }
         return ret;
     }

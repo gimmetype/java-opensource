@@ -17,8 +17,8 @@ public class MinimumVertexCoverSolver {
         }
         return false;
     }
-    public static Integer[] NaiveSolver(Graph g, ArrayList<Integer>[] group) {
-        Integer[] ans = new Integer[0];
+    public static ArrayList<Integer[]> NaiveSolver(Graph g, ArrayList<Integer>[] group) {
+        ArrayList<Integer[]> ans = new ArrayList<>();
         int[] cap_element = new int[group.length];
         int[] selected = new int[group.length];
         for (int i = 0; i < group.length; i++) {
@@ -45,12 +45,19 @@ public class MinimumVertexCoverSolver {
                         chk = false;
                 }
             }
-            // todo : ans를 여러개 저장하기
             if (chk) {
-                min_cnt = selected_cnt;
-                ans = (Integer[])vertice_set.toArray();
+                if (selected_cnt < min_cnt) {
+                    min_cnt = selected_cnt;
+                    ans.clear();
+                }
+                Integer[] temp = new Integer[vertice_set.size()];
+                for (int i = 0; i < vertice_set.size(); i++) {
+                    temp[i] = vertice_set.get(i);
+                }
+                ans.add(temp);
             }
         }
+        System.out.println("good");
         return ans;
     }
 }
