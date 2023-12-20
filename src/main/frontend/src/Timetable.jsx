@@ -1,10 +1,12 @@
 import React, {useEffect, useState} from 'react';
 import axios from 'axios';
 import styles from './AppStyle.scss';
+import "bootstrap/dist/css/bootstrap.min.css";
+import Pagination from 'react-bootstrap/Pagination';
 
 const colors = ["#fdd", "#ffd", "#dff", "#ddf", "#fdf", "#dfd", "#d8d", "#8d8"];
 
-function Timetable() {
+function Timetable({ output }) {
     let times = [];
     for (let i = 0; i < 14; i++) {
         const timeindex = String(i).padStart(2, '0');
@@ -41,11 +43,12 @@ function Timetable() {
         'PROF',
         'INFO'];
     // 선택한 과목 인덱스
-    const [lectures, setLectures] = useState([1,2,3]);
+    const [lectures, setLectures] = useState(output);
     // 아직 미사용
     const days = ["월", "화", "수", "목", "금", "토"];
     // 과목 데이터들
     const [lectureData, setLectureData] = useState([]);
+    const [index, setIndex] = useState(1);
 
     // 시간표 슬롯
     let table = [];
@@ -61,37 +64,33 @@ function Timetable() {
     const [slots, setSlots] = useState(table);
 
     useEffect(() => {
-        const url = '/gettimetable?ids=' + lectures.join(',');
+        const url = '/gettimetable?ids=' + lectures[index - 1].join(',');
         axios.get(url)
             .then(response => {
                 let data = response.data;
                 setSlots(data);
             })
-    }, []);
+    }, [index]);
 
+    const effectFunc = (async () => {
+          const url = '/lectures';
+            await axios.post(url, lectures)
+                .then(response => {
+                    let data = response.data;
+                    let nextLectureData = []
+                    for (let r = 0; r < data.length; r++) {
+                        for (let i = 0; i < lectureKeys.length; i++) {
+                            lectureObject[lectureKeys[i]] = data[r][i];
+                        }
+                        nextLectureData.push({...lectureObject});
+                    }
+                    setLectureData([...nextLectureData]);
+                });
+    });
     // 쿼리(요청) : 과목 인덱스들을 주면, lectureData 에 해당 과목 정보들을 담음
     useEffect(() => {
-        const url = '/lectures?ids=' + lectures.join(',');
-        axios.get(url)
-            .then(response => {
-                let data = response.data;
-                let nextLectureData = []
-                for (let r = 0; r < data.length; r++) {
-                    for (let i = 0; i < lectureKeys.length; i++) {
-                        lectureObject[lectureKeys[i]] = data[r][i];
-                    }
-                    nextLectureData.push({ ...lectureObject });
-                }
-                console.log(0);
-                console.log(nextLectureData);
-                console.log(1);
-                console.log([...nextLectureData]);
-                setLectureData([...nextLectureData]);
-            })
-            .catch(error => console.log(error))
-    }, []);
-    console.log(2);
-    console.log(lectureData);
+        effectFunc();
+    }, [index]);
     return (
         <div className="timetable">
             <header>
@@ -133,6 +132,34 @@ function Timetable() {
                     </ul>
                 ))}
             </div>
+            <Pagination className="px-4" style={{
+                justifyContent: 'center',
+                position: 'fixed',
+                left: 0,
+                right: 0,
+                bottom: '10px'}}>
+                <Pagination.First
+                    onClick={() => setIndex(1)}/>
+                <Pagination.Prev
+                    onClick={() => setIndex(Math.max(index - 5, 1))}/>
+                <Pagination.Ellipsis />
+
+                { index - 2 > 0 && (<Pagination.Item
+                    onClick={() => setIndex(index - 2)}>{ index - 2 }</Pagination.Item>) }
+                { index - 1 > 0 && (<Pagination.Item
+                    onClick={() => setIndex(index - 1)}>{ index - 1 }</Pagination.Item>) }
+                <Pagination.Item active>{index}</Pagination.Item>
+                { index + 1 <= lectures.length && (<Pagination.Item
+                    onClick={() => setIndex(index + 1)}>{ index + 1 }</Pagination.Item>) }
+                { index + 2 <= lectures.length && (<Pagination.Item
+                    onClick={() => setIndex(index + 2)}>{ index + 2 }</Pagination.Item>) }
+
+                <Pagination.Ellipsis />
+                <Pagination.Next
+                    onClick={() => setIndex(Math.min(index + 5, lectures.length))}/>
+                <Pagination.Last
+                    onClick={() => setIndex(lectures.length)}/>
+            </Pagination>
         </div>
     );
 }
